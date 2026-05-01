@@ -124,6 +124,8 @@ if menu == "📦 Inventario de Equipos":
             else:
                 st.error("⚠️ Hubo un problema al guardar en la nube.")
 
+    st.title(menu)
+    st.warning("Este módulo está en fase de diseño. Pronto estará disponible.")
 # ==========================================
 # MODULO: RECEPCIÓN DE MUESTRAS
 # ==========================================
@@ -154,6 +156,24 @@ elif menu == "📥 Recepción de Muestras":
         col1, col2 = st.columns(2)
         with col1:
             id_muestra = st.text_input("ID Number (DS-XX) *")
+            
+            # --- Validación Dinámica del ID de Muestra ---
+            id_valido = False
+            if id_muestra:
+                id_limpio = id_muestra.strip().upper()
+                
+                # Verificamos si la hoja tiene datos y buscamos duplicados
+                if not df_muestras.empty and 'ID_MUESTRA' in df_muestras.columns:
+                    existe_id = df_muestras['ID_MUESTRA'].astype(str).str.strip().str.upper().isin([id_limpio]).any()
+                else:
+                    existe_id = False
+                    
+                if existe_id:
+                    st.error(f"❌ El ID '{id_limpio}' YA EXISTE en la bitácora.")
+                else:
+                    st.success("✅ ID disponible")
+                    id_valido = True
+                    
             producto = st.text_input("Nombre del Producto *")
             cant = st.number_input("Cantidad", min_value=0.0, step=0.1)
             unidad = st.selectbox("Unidad", ["gr", "ml", "Kg", "L", "Gal"])
@@ -166,38 +186,35 @@ elif menu == "📥 Recepción de Muestras":
             f_recepcion = st.date_input("Fecha de Recepción", datetime.now())
             estatus = st.selectbox("Estatus Inicial", ["PENDIENTE", "EN ANALISIS", "URGENTE"])
 
-        if st.button("Registrar Muestra en Bitácora", type="primary"):
-            if id_muestra and producto:
-                nueva_muestra = {
-                    "data": [
-                        {
-                            "ID_MUESTRA": id_muestra.upper(),
-                            "PRODUCTO": producto.upper(),
-                            "CANTIDAD": cant,
-                            "UNIDAD": unidad,
-                            "PROVEEDOR": proveedor.upper(),
-                            "LOTE": lote.upper(),
-                            "RECIBIDO_POR": recibido.upper(),
-                            "FECHA_MUESTREO": str(f_muestreo),
-                            "FECHA_RECEPCION": str(f_recepcion),
-                            "ESTATUS": estatus,
-                            "CERTIFICADO": "PENDIENTE"
-                        }
-                    ]
-                }
-                
-                res = requests.post(URL_DB_MUESTRAS, json=nueva_muestra)
-                if res.status_code == 201:
-                    st.success(f"✅ Muestra {id_muestra} registrada correctamente.")
-                    st.balloons()
-                else:
-                    st.error("⚠️ Error al conectar con la base de datos de muestras.")
-            else:
-                st.warning("El ID y el Nombre del Producto son obligatorios.")
+        st.markdown("*Obligatorio")
+        
+        # --- Lógica del Botón Inteligente para Muestras ---
+        campos_m_llenos = bool(id_muestra and producto)
+        todo_m_valido = id_valido and campos_m_llenos
 
-# ==========================================
-# OTROS MÓDULOS (PRÓXIMAMENTE)
-# ==========================================
-else:
-    st.title(menu)
-    st.warning("Este módulo está en fase de diseño. Pronto estará disponible.")
+        # El botón solo se activa si el ID no está repetido y los campos obligatorios están llenos
+        if st.button("Registrar Muestra en Bitácora", type="primary", disabled=not todo_m_valido):
+            nueva_muestra = {
+                "data": [
+                    {
+                        "ID_MUESTRA": id_limpio,
+                        "PRODUCTO": producto.upper(),
+                        "CANTIDAD": cant,
+                        "UNIDAD": unidad,
+                        "PROVEEDOR": proveedor.upper(),
+                        "LOTE": lote.upper(),
+                        "RECIBIDO_POR": recibido.upper(),
+                        "FECHA_MUESTREO": str(f_muestreo),
+                        "FECHA_RECEPCION": str(f_recepcion),
+                        "ESTATUS": estatus,
+                        "CERTIFICADO": "PENDIENTE"
+                    }
+                ]
+            }
+            
+            res = requests.post(URL_DB_MUESTRAS, json=nueva_muestra)
+            if res.status_code == 201:
+                st.success(f"✅ Muestra {id_limpio} registrada correctamente. (Presiona F5 para registrar otra)")
+                st.balloons()
+            else:
+                st.error("⚠️ Error al conectar con la base de datos de muestras.")
