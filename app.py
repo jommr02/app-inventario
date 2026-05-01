@@ -36,13 +36,16 @@ def cargar_datos(url):
 # ==========================================
 # MODULO: INVENTARIO DE EQUIPOS
 # ==========================================
-if menu == "📦 Inventario de Equipos":
-    st.title("Gestión de Equipos")
-    df_eq = cargar_datos(URL_HOJA_EQUIPOS)
-    
-    tab1, tab2 = st.tabs(["📋 Ver Inventario", "➕ Registrar Equipo"])
-    
-   # --- PESTAÑA 1: VER INVENTARIO ---
+try:
+    df = pd.read_csv(URL_GOOGLE_SHEET)
+    df.columns = df.columns.str.strip() 
+except Exception as e:
+    st.error("⚠️ No se pudieron cargar los datos de la nube.")
+    df = pd.DataFrame()
+
+pestaña_ver, pestaña_agregar = st.tabs(["📋 Ver Equipos", "➕ Agregar Nuevo Equipo"])
+
+# --- PESTAÑA 1: VER INVENTARIO ---
 with pestaña_ver:
     st.subheader("Inventario Actual en la Nube")
     if not df.empty:
@@ -127,7 +130,6 @@ with pestaña_agregar:
             st.balloons()
         else:
             st.error("⚠️ Hubo un problema al guardar en la nube.")
-
 
 # ==========================================
 # MODULO: RECEPCIÓN DE MUESTRAS
