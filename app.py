@@ -34,13 +34,12 @@ with pestaña_agregar:
     st.subheader("Registrar un nuevo equipo")
     st.markdown("Escribe la Clave y el Serial para verificar su disponibilidad al instante.")
     
-    # ELIMINAMOS st.form PARA HACERLO EN TIEMPO REAL
     col1, col2 = st.columns(2)
     
     with col1:
         clave = st.text_input("Clave * (Única)")
         
-        # --- Validación Dinámica de Clave ---
+        # --- Validación Dinámica de Clave (Siempre estricta) ---
         clave_valida = False
         if clave:
             clave_limpia = clave.strip().upper()
@@ -55,13 +54,19 @@ with pestaña_agregar:
         estatus = st.selectbox("Estatus", ["OPERATIVO", "PENDIENTE CALIBRACION", "PENDIENTE VERIFICACION", "DAÑADA"])
         
     with col2:
-        serie = st.text_input("Serie * (Única)")
+        serie = st.text_input("Serie * (Escribe 'S/S' si no tiene serial)")
         
-        # --- Validación Dinámica de Serie ---
+        # --- Validación Dinámica de Serie (Con excepción 'S/S') ---
         serie_valida = False
         if serie:
             serie_limpia = serie.strip().upper()
-            if df['Serie'].astype(str).str.strip().str.upper().isin([serie_limpia]).any():
+            
+            # EXCEPCIÓN: Si es S/S, le damos un pase libre
+            if serie_limpia == "S/S" or serie_limpia == "SS":
+                st.warning("⚠️ Equipo sin serial. Se dependerá únicamente de la Clave.")
+                serie_valida = True
+            # Si no es S/S, buscamos duplicados normalmente
+            elif df['Serie'].astype(str).str.strip().str.upper().isin([serie_limpia]).any():
                 st.error(f"❌ El Serial '{serie_limpia}' YA EXISTE.")
             else:
                 st.success("✅ Serial disponible")
@@ -73,11 +78,9 @@ with pestaña_agregar:
     st.markdown("*Obligatorio")
     
     # --- Lógica del Botón Inteligente ---
-    # Solo se activa si los 3 campos obligatorios están llenos Y no hay duplicados
     campos_llenos = bool(clave and nombre and serie)
     todo_valido = clave_valida and serie_valida and campos_llenos
     
-    # Usamos disabled=not todo_valido para "apagar" el botón si hay errores
     if st.button("Guardar en Base de Datos", type="primary", disabled=not todo_valido):
         datos_nuevos = {
             "data": [
