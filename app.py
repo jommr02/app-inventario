@@ -8,7 +8,7 @@ st.set_page_config(page_title="LIMS - WCF Fluids Lab", page_icon="🔬", layout=
 
 # ENLACES 
 URL_HOJA_EQUIPOS = "https://docs.google.com/spreadsheets/d/12luDlLrUIiPtxX7iqGuU3QuG_E6psGWtfYrQmSTzJCU/export?format=csv"
-URL_HOJA_MUESTRAS = "https://docs.google.com/spreadsheets/d/1fZBvKgt2-S5CRKRBuzIZ8hMS_M9pLYQiz_KcSYDX31o/export?format=csv"
+URL_HOJA_MUESTRAS = "https://docs.google.com/spreadsheets/d/1fZBvKgt2-S5CRKRBuzIZ8hMS_M9pLYQiz_KcSYDX31o/export?format=csv&gid=0"
 URL_DB_EQUIPOS = "https://sheetdb.io/api/v1/9pogtini9kr0k"
 URL_DB_MUESTRAS = "https://sheetdb.io/api/v1/cn4v870fg7c8z"
 
@@ -22,17 +22,17 @@ menu = st.sidebar.radio("Módulos:", [
     "📊 Panel de Control"
 ])
 
-# --- FUNCIÓN PARA CARGAR DATOS (Aquí estaba el error) ---
+# --- FUNCIÓN PARA CARGAR DATOS ---
 def cargar_datos(url):
     try:
         df = pd.read_csv(url)
         df.columns = df.columns.str.strip()
         return df
-    except: # ¡ESTA ES LA PARTE QUE SE HABÍA BORRADO!
+    except:
         return pd.DataFrame()
 
 # ==========================================
-# MODULO: INVENTARIO DE EQUIPOS
+# MODULO 1: INVENTARIO DE EQUIPOS
 # ==========================================
 if menu == "📦 Inventario de Equipos":
     st.title("Gestión de Equipos")
@@ -53,21 +53,17 @@ if menu == "📦 Inventario de Equipos":
         else:
             st.info("No se encontraron equipos o hay un error de conexión.")
 
-    # --- PESTAÑA 2: AGREGAR NUEVO EQUIPO (DINÁMICO) ---
+    # --- PESTAÑA 2: AGREGAR NUEVO EQUIPO ---
     with pestaña_agregar:
         st.subheader("Registrar un nuevo equipo")
-        st.markdown("Escribe la Clave y el Serial para verificar su disponibilidad al instante.")
-        
         col1, col2 = st.columns(2)
         
         with col1:
             clave = st.text_input("Clave * (Única)")
-            
-            # Validación Dinámica de Clave
             clave_valida = False
             if clave:
                 clave_limpia = clave.strip().upper()
-                if df['Clave'].astype(str).str.strip().str.upper().isin([clave_limpia]).any():
+                if not df.empty and 'Clave' in df.columns and df['Clave'].astype(str).str.strip().str.upper().isin([clave_limpia]).any():
                     st.error(f"❌ La Clave '{clave_limpia}' YA EXISTE.")
                 else:
                     st.success("✅ Clave disponible")
@@ -79,15 +75,13 @@ if menu == "📦 Inventario de Equipos":
             
         with col2:
             serie = st.text_input("Serie * (Escribe 'S/S' si no tiene serial)")
-            
-            # Validación Dinámica de Serie
             serie_valida = False
             if serie:
                 serie_limpia = serie.strip().upper()
-                if serie_limpia == "S/S" or serie_limpia == "SS":
+                if serie_limpia in ["S/S", "SS"]:
                     st.warning("⚠️ Equipo sin serial. Se dependerá únicamente de la Clave.")
                     serie_valida = True
-                elif df['Serie'].astype(str).str.strip().str.upper().isin([serie_limpia]).any():
+                elif not df.empty and 'Serie' in df.columns and df['Serie'].astype(str).str.strip().str.upper().isin([serie_limpia]).any():
                     st.error(f"❌ El Serial '{serie_limpia}' YA EXISTE.")
                 else:
                     st.success("✅ Serial disponible")
@@ -97,101 +91,67 @@ if menu == "📦 Inventario de Equipos":
             modelo = st.text_input("Modelo")
             
         st.markdown("*Obligatorio")
-        
         campos_llenos = bool(clave and nombre and serie)
         todo_valido = clave_valida and serie_valida and campos_llenos
         
-        if st.button("Guardar en Base de Datos", type="primary", disabled=not todo_valido):
-            datos_nuevos = {
-                "data": [
-                    {
-                        "Clave": clave_limpia,
-                        "Nombre": nombre.upper(),
-                        "Ubicacion": ubicacion,
-                        "Marca": marca.upper(),
-                        "Modelo": modelo.upper(),
-                        "Serie": serie_limpia,
-                        "Estatus": estatus
-                    }
-                ]
-            }
-            
+        if st.button("Guardar Equipo", type="primary", disabled=not todo_valido):
+            datos_nuevos = {"data": [{"Clave": clave_limpia, "Nombre": nombre.upper(), "Ubicacion": ubicacion, "Marca": marca.upper(), "Modelo": modelo.upper(), "Serie": serie_limpia, "Estatus": estatus}]}
             respuesta = requests.post(URL_DB_EQUIPOS, json=datos_nuevos)
-            
             if respuesta.status_code == 201:
-                st.success(f"✅ ¡Éxito! El equipo '{nombre}' se guardó en la base de datos.")
+                st.success(f"✅ ¡Éxito! Equipo guardado. (Presiona F5 para limpiar)")
                 st.balloons()
             else:
-                st.error("⚠️ Hubo un problema al guardar en la nube.")
+                st.error("⚠️ Error al guardar en la nube.")
 
-    st.title(menu)
-    st.warning("Este módulo está en fase de diseño. Pronto estará disponible.")
 # ==========================================
-# MODULO: RECEPCIÓN DE MUESTRAS
+# MODULO 2: RECEPCIÓN DE MUESTRAS
 # ==========================================
 elif menu == "📥 Recepción de Muestras":
     st.title("Bitácora de Recepción de Muestras")
     
     df_muestras = cargar_datos(URL_HOJA_MUESTRAS)
-    
     tab_v, tab_a = st.tabs(["📋 Ver Muestras", "🆕 Ingresar Muestra"])
     
+    # --- PESTAÑA 1: VER MUESTRAS ---
     with tab_v:
         st.subheader("Listado de Productos Recibidos")
-        
         if not df_muestras.empty:
             busqueda_m = st.text_input("🔍 Buscar muestra (ID, Producto o Lote):")
-            
             if busqueda_m:
                 df_filtro_m = df_muestras[df_muestras.astype(str).apply(lambda x: x.str.contains(busqueda_m, case=False, na=False)).any(axis=1)]
                 st.dataframe(df_filtro_m, use_container_width=True)
             else:
                 st.dataframe(df_muestras, use_container_width=True)
         else:
-            st.info("Aún no hay muestras registradas en la bitácora o hay un error en el enlace.")
+            st.info("Aún no hay muestras registradas.")
             
-with tab_a:
-        st.subheader("Formulario de Ingreso de Producto/Muestra")
+    # --- PESTAÑA 2: INGRESAR MUESTRA ---
+    with tab_a:
+        st.subheader("Formulario de Ingreso")
         
-        # --- LÓGICA DE AUTO-GENERACIÓN DE ID ---
-        siguiente_id = "DS-01" # Valor por defecto si la base está vacía
+        siguiente_id = "DS-01"
         if not df_muestras.empty and 'ID_MUESTRA' in df_muestras.columns:
-            # Filtramos solo los IDs que sean texto
             ids_actuales = df_muestras['ID_MUESTRA'].dropna().astype(str)
             numeros = []
             for val in ids_actuales:
                 val = val.strip().upper()
                 if val.startswith("DS-"):
                     try:
-                        # Extraemos el número después del guion
                         num = int(val.replace("DS-", ""))
                         numeros.append(num)
                     except:
-                        pass # Ignoramos si alguien escribió "DS-ERROR" o algo sin número
-            
+                        pass
             if numeros:
-                max_num = max(numeros)
-                # Creamos el siguiente ID manteniendo los ceros a la izquierda (ej. DS-05)
-                siguiente_id = f"DS-{max_num + 1:02d}"
+                siguiente_id = f"DS-{max(numeros) + 1:02d}"
 
-        # --- FORMULARIO ---
         col1, col2 = st.columns(2)
         with col1:
-            # Aquí inyectamos el "siguiente_id" automáticamente en la casilla
             id_muestra = st.text_input("ID Number (Sugerido automático) *", value=siguiente_id)
-            
-            # --- Validación Dinámica del ID de Muestra ---
             id_valido = False
             if id_muestra:
                 id_limpio = id_muestra.strip().upper()
-                
-                if not df_muestras.empty and 'ID_MUESTRA' in df_muestras.columns:
-                    existe_id = df_muestras['ID_MUESTRA'].astype(str).str.strip().str.upper().isin([id_limpio]).any()
-                else:
-                    existe_id = False
-                    
-                if existe_id:
-                    st.error(f"❌ El ID '{id_limpio}' YA EXISTE en la bitácora.")
+                if not df_muestras.empty and 'ID_MUESTRA' in df_muestras.columns and df_muestras['ID_MUESTRA'].astype(str).str.strip().str.upper().isin([id_limpio]).any():
+                    st.error(f"❌ El ID '{id_limpio}' YA EXISTE.")
                 else:
                     st.success("✅ ID disponible")
                     id_valido = True
@@ -209,33 +169,25 @@ with tab_a:
             estatus = st.selectbox("Estatus Inicial", ["PENDIENTE", "EN ANALISIS", "URGENTE"])
 
         st.markdown("*Obligatorio")
-        
-        # --- Lógica del Botón Inteligente para Muestras ---
         campos_m_llenos = bool(id_muestra and producto)
         todo_m_valido = id_valido and campos_m_llenos
 
-        if st.button("Registrar Muestra en Bitácora", type="primary", disabled=not todo_m_valido):
-            nueva_muestra = {
-                "data": [
-                    {
-                        "ID_MUESTRA": id_limpio,
-                        "PRODUCTO": producto.upper(),
-                        "CANTIDAD": cant,
-                        "UNIDAD": unidad,
-                        "PROVEEDOR": proveedor.upper(),
-                        "LOTE": lote.upper(),
-                        "RECIBIDO_POR": recibido.upper(),
-                        "FECHA_MUESTREO": str(f_muestreo),
-                        "FECHA_RECEPCION": str(f_recepcion),
-                        "ESTATUS": estatus,
-                        "CERTIFICADO": "PENDIENTE"
-                    }
-                ]
-            }
-            
+        if st.button("Registrar Muestra", type="primary", disabled=not todo_m_valido):
+            nueva_muestra = {"data": [{"ID_MUESTRA": id_limpio, "PRODUCTO": producto.upper(), "CANTIDAD": cant, "UNIDAD": unidad, "PROVEEDOR": proveedor.upper(), "LOTE": lote.upper(), "RECIBIDO_POR": recibido.upper(), "FECHA_MUESTREO": str(f_muestreo), "FECHA_RECEPCION": str(f_recepcion), "ESTATUS": estatus, "CERTIFICADO": "PENDIENTE"}]}
             res = requests.post(URL_DB_MUESTRAS, json=nueva_muestra)
             if res.status_code == 201:
-                st.success(f"✅ Muestra {id_limpio} registrada correctamente. (Presiona F5 para registrar otra)")
+                st.success(f"✅ Muestra {id_limpio} guardada. (Presiona F5 para registrar otra)")
                 st.balloons()
             else:
-                st.error("⚠️ Error al conectar con la base de datos de muestras.")
+                st.error("⚠️ Error al guardar.")
+
+# ==========================================
+# OTROS MÓDULOS
+# ==========================================
+elif menu == "🚚 Despachos a Pozos":
+    st.title("Despachos a Pozos")
+    st.info("Módulo en construcción. Próximamente.")
+
+elif menu == "📊 Panel de Control":
+    st.title("Panel de Control")
+    st.info("Módulo en construcción. Próximamente.")
