@@ -226,6 +226,80 @@ elif menu == "🚚 Despachos a Taladros":
     st.title("Despachos a Taladros")
     st.info("Módulo en construcción. Próximamente.")
 
+# ==========================================
+# MODULO 4: PANEL DE CONTROL
+# ==========================================
 elif menu == "📊 Panel de Control":
-    st.title("Panel de Control")
-    st.info("Módulo en construcción. Próximamente.")
+    st.title("📊 Panel de Control y Analíticas")
+    st.markdown("Visión general en tiempo real del estatus del laboratorio y operaciones en campo.")
+    
+    # Cargamos ambas bases de datos
+    df_eq = cargar_datos(URL_HOJA_EQUIPOS)
+    df_muestras = cargar_datos(URL_HOJA_MUESTRAS)
+    
+    if not df_eq.empty and not df_muestras.empty:
+        
+        # --- FILA 1: KPIs (Métricas Rápidas) ---
+        col1, col2, col3 = st.columns(3)
+        
+        total_equipos = len(df_eq)
+        # Contamos cuántos equipos están en un taladro (Ubicación distinta a almacén/taller)
+        if 'Ubicacion' in df_eq.columns:
+            equipos_base = df_eq[df_eq['Ubicacion'].isin(['ALMACEN', 'LAB. MATURIN', 'TALLER'])]
+            equipos_campo = total_equipos - len(equipos_base)
+        else:
+            equipos_campo = 0
+            
+        total_muestras = len(df_muestras)
+        
+        col1.metric("📦 Total Equipos en Inventario", total_equipos)
+        col2.metric("🚚 Equipos Despachados a Campo", equipos_campo)
+        col3.metric("🧪 Total Muestras Recibidas", total_muestras)
+        
+        st.markdown("---")
+        
+        # --- FILA 2: GRÁFICOS ---
+        col_chart1, col_chart2 = st.columns(2)
+        
+        with col_chart1:
+            st.subheader("📍 Distribución de Equipos")
+            if 'Ubicacion' in df_eq.columns:
+                # Contamos cuántos equipos hay en cada ubicación y graficamos
+                ubicacion_counts = df_eq['Ubicacion'].value_counts()
+                st.bar_chart(ubicacion_counts, color="#0014DC")
+                
+        with col_chart2:
+            st.subheader("⏱️ Estatus de Muestras")
+            if 'ESTATUS' in df_muestras.columns:
+                # Contamos el estatus de las muestras
+                estatus_counts = df_muestras['ESTATUS'].value_counts()
+                st.bar_chart(estatus_counts, color="#0014DC")
+                
+        st.markdown("---")
+        
+        # --- FILA 3: ALERTAS OPERATIVAS ---
+        st.subheader("⚠️ Alertas de Atención Requerida")
+        alert_col1, alert_col2 = st.columns(2)
+        
+        with alert_col1:
+            st.error("Equipos Dañados o Pendientes de Calibración")
+            if 'Estatus' in df_eq.columns:
+                # Filtramos equipos con problemas
+                equipos_alert = df_eq[df_eq['Estatus'].isin(['DAÑADA', 'PENDIENTE CALIBRACION', 'PENDIENTE VERIFICACION'])]
+                if not equipos_alert.empty:
+                    st.dataframe(equipos_alert[['Clave', 'Nombre', 'Estatus']], hide_index=True, use_container_width=True)
+                else:
+                    st.success("¡Todo en orden! No hay equipos dañados.")
+                    
+        with alert_col2:
+            st.warning("Muestras Urgentes o Pendientes")
+            if 'ESTATUS' in df_muestras.columns:
+                # Filtramos muestras urgentes
+                muestras_alert = df_muestras[df_muestras['ESTATUS'].isin(['URGENTE', 'PENDIENTE'])]
+                if not muestras_alert.empty:
+                    st.dataframe(muestras_alert[['ID_MUESTRA', 'PRODUCTO', 'ESTATUS']], hide_index=True, use_container_width=True)
+                else:
+                    st.success("¡Excelente! No hay muestras pendientes.")
+                    
+    else:
+        st.info("Esperando conexión con la base de datos para generar analíticas...")
