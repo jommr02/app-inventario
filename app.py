@@ -1,65 +1,90 @@
 import streamlit as st
 import pandas as pd
+import requests
 
 st.set_page_config(page_title="Inventario de Laboratorio", page_icon="🔬", layout="wide")
 
 URL_GOOGLE_SHEET = "https://docs.google.com/spreadsheets/d/12luDlLrUIiPtxX7iqGuU3QuG_E6psGWtfYrQmSTzJCU/export?format=csv"
-ENLACE_FORMULARIO = "https://docs.google.com/forms/d/e/1FAIpQLSfffv_cw6Ns0q077yeyW1Z-R1MZF-3-yQ4eirjZsmoahp-i6Q/viewform?usp=publish-editor"
+
+# Put the link you got from Google Apps Script here!
+APPS_SCRIPT_URL = https://script.google.com/macros/s/AKfycbxAc2ukKPe8MHGah5TOPRu7nVDdWsqy_QTTUFBb_R7eZ48B2q1LDHTLN14NHA75YTyE/exec
 
 st.title("🔬 Sistema de Gestión de Inventario WCF")
 
-# Intentamos cargar los datos al inicio para usarlos en ambas pestañas
 try:
     df = pd.read_csv(URL_GOOGLE_SHEET)
+    df.columns = df.columns.str.strip() # Ninja trick to clean spaces
 except Exception as e:
     st.error("⚠️ No se pudieron cargar los datos de la nube.")
-    df = pd.DataFrame() # Creamos una tabla vacía para que la app no se rompa
+    df = pd.DataFrame()
 
 pestaña_ver, pestaña_agregar = st.tabs(["📋 Ver Equipos", "➕ Agregar Nuevo Equipo"])
 
-# --- PESTAÑA PARA VER EL INVENTARIO ---
+# --- TAB 1: VIEW INVENTORY ---
 with pestaña_ver:
     st.subheader("Inventario Actual en la Nube")
-    
     if not df.empty:
         busqueda = st.text_input("🔍 Buscar equipo por Nombre, Clave o Serial:")
-        
         if busqueda:
             df_filtrado = df[df.astype(str).apply(lambda x: x.str.contains(busqueda, case=False, na=False)).any(axis=1)]
             st.dataframe(df_filtrado, use_container_width=True)
         else:
             st.dataframe(df, use_container_width=True)
 
-# --- PESTAÑA PARA AGREGAR (EL GUARDIÁN) ---
+# --- TAB 2: ADD NEW EQUIPMENT (THE ULTIMATE GUARDIAN) ---
 with pestaña_agregar:
-    st.subheader("Paso 1: Verificación de Duplicados")
-    st.info("Para evitar errores, el sistema debe verificar que la Clave y el Serial sean únicos antes de permitir el registro.")
+    st.subheader("Registrar un nuevo equipo")
     
-    # Cajitas para que el usuario escriba lo que quiere verificar
-    clave_nueva = st.text_input("Ingresa la CLAVE del equipo nuevo:")
-    serial_nuevo = st.text_input("Ingresa el SERIAL del equipo nuevo:")
-    
-    # Solo procedemos a evaluar si el usuario escribió en ambas cajitas
-    if clave_nueva and serial_nuevo:
+    # We build the form completely inside the app now!
+    with st.form("registro_equipo", clear_on_submit=True):
+        col1, col2 = st.columns(2)
         
-        # Limpiamos los textos (quitamos espacios extra y ponemos mayúsculas para comparar bien)
-        clave_limpia = clave_nueva.strip().upper()
-        serial_limpio = serial_nuevo.strip().upper()
-        
-        # Revisamos si existen en la base de datos (ignorando mayúsculas/minúsculas)
-        # Asumimos que las columnas se llaman 'Clave' y 'Serie' según tu archivo original
-        existe_clave = df['Clave'].astype(str).str.strip().str.upper().isin([clave_limpia]).any()
-        existe_serial = df['Serie'].astype(str).str.strip().str.upper().isin([serial_limpio]).any()
-        
-        # Lógica de validación
-        if existe_clave:
-            st.error(f"❌ ¡Alto! La Clave '{clave_nueva}' YA EXISTE en el inventario.")
-        elif existe_serial:
-            st.error(f"❌ ¡Alto! El Serial '{serial_nuevo}' YA EXISTE en el inventario.")
-        else:
-            # Si pasa la prueba, mostramos el éxito y el botón
-            st.success(f"✅ ¡Perfecto! La Clave y el Serial están disponibles.")
+        with col1:
+            clave = st.text_input("Clave * (Única)")
+            nombre = st.text_input("Nombre *")
+            ubicacion = st.selectbox("Ubicación", ["ALMACEN", "LAB. MATURIN", "TALLER"])
+            estatus = st.selectbox("Estatus", ["OPERATIVO", "PENDIENTE CALIBRACION", "PENDIENTE VERIFICACION", "DAÑADA"])
             
-            st.subheader("Paso 2: Registrar en la Base de Datos")
-            st.markdown("Haz clic en el botón para abrir el formulario y completar los demás datos del equipo:")
-            st.link_button("📝 Abrir Formulario de Registro", ENLACE_FORMULARIO)
+        with col2:
+            marca = st.text_input("Marca")
+            modelo = st.text_input("Modelo")
+            serie = st.text_input("Serie * (Única)")
+            
+        st.markdown("*Obligatorio")
+        boton_guardar = st.form_submit_button("Validar y Guardar")
+
+        if boton_guardar:
+            if not clave or not nombre or not serie:
+                st.error("Por favor, llena los campos obligatorios: Clave, Nombre y Serie.")
+            else:
+                # 1. Validation Phase (The Guardian)
+                clave_limpia = clave.strip().upper()
+                serie_limpia = serie.strip().upper()
+                
+                existe_clave = df['Clave'].astype(str).str.strip().str.upper().isin([clave_limpia]).any()
+                existe_serie = df['Serie'].astype(str).str.strip().str.upper().isin([serie_limpia]).any()
+                
+                if existe_clave:
+                    st.error(f"❌ ¡Alto! La Clave '{clave_limpia}' YA EXISTE en el inventario.")
+                elif existe_serie:
+                    st.error(f"❌ ¡Alto! El Serial '{serie_limpia}' YA EXISTE en el inventario.")
+                else:
+                    # 2. Sending Phase (The Tunnel)
+                    datos_nuevos = {
+                        "Clave": clave_limpia,
+                        "Nombre": nombre.upper(),
+                        "Ubicacion": ubicacion,
+                        "Marca": marca.upper(),
+                        "Modelo": modelo.upper(),
+                        "Serie": serie_limpia,
+                        "Estatus": estatus
+                    }
+                    
+                    # We send the data through the secret tunnel
+                    respuesta = requests.post(APPS_SCRIPT_URL, json=datos_nuevos)
+                    
+                    if respuesta.text == "Success":
+                        st.success(f"✅ ¡Éxito! El equipo '{nombre}' se guardó en la base de datos.")
+                        st.balloons()
+                    else:
+                        st.error("⚠️ Hubo un problema al guardar en la nube.")
