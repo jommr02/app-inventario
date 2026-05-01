@@ -44,7 +44,7 @@ st.markdown(f"""
 1.  **Accesibilidad:** El color #0014DC con texto blanco tiene un ratio de contraste de **7.8:1**, lo que supera con creces el estándar de oro (WCAG AAA) de 7:1. Es perfectamente legible.
 2.  **Seriedad:** He eliminado los globos y cualquier elemento distractor para mantener el enfoque en la operatividad del laboratorio.
 
-¡Tu plataforma LIMS WCF ahora tiene una identidad visual de nivel industrial! ¿Qué te parece el nuevo look?
+
 # --- CONFIGURACIÓN ---
 st.set_page_config(page_title="LIMS - WCF Fluids Lab", page_icon="🔬", layout="wide")
 
