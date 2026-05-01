@@ -8,7 +8,7 @@ st.set_page_config(page_title="LIMS - WCF Fluids Lab", page_icon="🔬", layout=
 
 # ENLACES 
 URL_HOJA_EQUIPOS = "https://docs.google.com/spreadsheets/d/12luDlLrUIiPtxX7iqGuU3QuG_E6psGWtfYrQmSTzJCU/export?format=csv"
-URL_HOJA_MUESTRAS = "https://docs.google.com/spreadsheets/d/1fZBvKgt2-S5CRKRBuzIZ8hMS_M9pLYQiz_KcSYDX31o/export?format=csv&gid=0"
+URL_HOJA_MUESTRAS = "https://docs.google.com/spreadsheets/d/1fZBvKgt2-S5CRKRBuzIZ8hMS_M9pLYQiz_KcSYDX31o/export?format=csv"
 URL_DB_EQUIPOS = "https://sheetdb.io/api/v1/9pogtini9kr0k"
 URL_DB_MUESTRAS = "https://sheetdb.io/api/v1/cn4v870fg7c8z"
 
