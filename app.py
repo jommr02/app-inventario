@@ -7,7 +7,7 @@ st.set_page_config(page_title="Inventario de Laboratorio", page_icon="🔬", lay
 URL_GOOGLE_SHEET = "https://docs.google.com/spreadsheets/d/12luDlLrUIiPtxX7iqGuU3QuG_E6psGWtfYrQmSTzJCU/export?format=csv"
 
 # Put the link you got from Google Apps Script here!
-APPS_SCRIPT_URL = https://script.google.com/macros/s/AKfycbxAc2ukKPe8MHGah5TOPRu7nVDdWsqy_QTTUFBb_R7eZ48B2q1LDHTLN14NHA75YTyE/exec
+APPS_SCRIPT_URL = https://sheetdb.io/api/v1/9pogtini9kr0k
 
 st.title("🔬 Sistema de Gestión de Inventario WCF")
 
