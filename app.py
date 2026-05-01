@@ -36,15 +36,6 @@ def cargar_datos(url):
 # ==========================================
 # MODULO: INVENTARIO DE EQUIPOS
 # ==========================================
-try:
-    df = pd.read_csv(URL_GOOGLE_SHEET)
-    df.columns = df.columns.str.strip() 
-except Exception as e:
-    st.error("⚠️ No se pudieron cargar los datos de la nube.")
-    df = pd.DataFrame()
-
-pestaña_ver, pestaña_agregar = st.tabs(["📋 Ver Equipos", "➕ Agregar Nuevo Equipo"])
-
 # --- PESTAÑA 1: VER INVENTARIO ---
 with pestaña_ver:
     st.subheader("Inventario Actual en la Nube")
