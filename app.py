@@ -8,6 +8,7 @@ st.set_page_config(page_title="LIMS - WCF Fluids Lab", page_icon="🔬", layout=
 
 # ENLACES (Sustituye con tus enlaces reales)
 URL_HOJA_EQUIPOS = "https://docs.google.com/spreadsheets/d/12luDlLrUIiPtxX7iqGuU3QuG_E6psGWtfYrQmSTzJCU/export?format=csv"
+URL_MUESTRAS = "https://docs.google.com/spreadsheets/d/1fZBvKgt2-S5CRKRBuzIZ8hMS_M9pLYQiz_KcSYDX31o//export?format=csv"
 URL_DB_EQUIPOS = "https://sheetdb.io/api/v1/9pogtini9kr0k"
 
 # Pega aquí el NUEVO enlace de SheetDB para la pestaña de Muestras
