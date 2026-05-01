@@ -6,12 +6,10 @@ from datetime import datetime
 # --- CONFIGURACIÓN ---
 st.set_page_config(page_title="LIMS - WCF Fluids Lab", page_icon="🔬", layout="wide")
 
-# ENLACES (Sustituye con tus enlaces reales)
+# ENLACES 
 URL_HOJA_EQUIPOS = "https://docs.google.com/spreadsheets/d/12luDlLrUIiPtxX7iqGuU3QuG_E6psGWtfYrQmSTzJCU/export?format=csv"
-URL_HOJA_MUESTRAS = "https://docs.google.com/spreadsheets/d/1fZBvKgt2-S5CRKRBuzIZ8hMS_M9pLYQiz_KcSYDX31o/export?format=csv"
+URL_HOJA_MUESTRAS = "https://docs.google.com/spreadsheets/d/1fZBvKgt2-S5CRKRBuzIZ8hMS_M9pLYQiz_KcSYDX31o/export?format=csv&gid=0"
 URL_DB_EQUIPOS = "https://sheetdb.io/api/v1/9pogtini9kr0k"
-
-# Pega aquí el NUEVO enlace de SheetDB para la pestaña de Muestras
 URL_DB_MUESTRAS = "https://sheetdb.io/api/v1/cn4v870fg7c8z"
 
 # --- MENÚ LATERAL ---
@@ -24,18 +22,21 @@ menu = st.sidebar.radio("Módulos:", [
     "📊 Panel de Control"
 ])
 
-# --- FUNCIÓN PARA CARGAR DATOS ---
+# --- FUNCIÓN PARA CARGAR DATOS (Aquí estaba el error) ---
 def cargar_datos(url):
     try:
         df = pd.read_csv(url)
         df.columns = df.columns.str.strip()
+        return df
+    except: # ¡ESTA ES LA PARTE QUE SE HABÍA BORRADO!
+        return pd.DataFrame()
+
 # ==========================================
 # MODULO: INVENTARIO DE EQUIPOS
 # ==========================================
 if menu == "📦 Inventario de Equipos":
     st.title("Gestión de Equipos")
     
-    # ¡ESTAS LÍNEAS FALTABAN!
     df = cargar_datos(URL_HOJA_EQUIPOS)
     pestaña_ver, pestaña_agregar = st.tabs(["📋 Ver Inventario", "➕ Registrar Equipo"])
 
@@ -62,7 +63,7 @@ if menu == "📦 Inventario de Equipos":
         with col1:
             clave = st.text_input("Clave * (Única)")
             
-            # --- Validación Dinámica de Clave (Siempre estricta) ---
+            # Validación Dinámica de Clave
             clave_valida = False
             if clave:
                 clave_limpia = clave.strip().upper()
@@ -79,16 +80,13 @@ if menu == "📦 Inventario de Equipos":
         with col2:
             serie = st.text_input("Serie * (Escribe 'S/S' si no tiene serial)")
             
-            # --- Validación Dinámica de Serie (Con excepción 'S/S') ---
+            # Validación Dinámica de Serie
             serie_valida = False
             if serie:
                 serie_limpia = serie.strip().upper()
-                
-                # EXCEPCIÓN: Si es S/S, le damos un pase libre
                 if serie_limpia == "S/S" or serie_limpia == "SS":
                     st.warning("⚠️ Equipo sin serial. Se dependerá únicamente de la Clave.")
                     serie_valida = True
-                # Si no es S/S, buscamos duplicados normalmente
                 elif df['Serie'].astype(str).str.strip().str.upper().isin([serie_limpia]).any():
                     st.error(f"❌ El Serial '{serie_limpia}' YA EXISTE.")
                 else:
@@ -100,7 +98,6 @@ if menu == "📦 Inventario de Equipos":
             
         st.markdown("*Obligatorio")
         
-        # --- Lógica del Botón Inteligente ---
         campos_llenos = bool(clave and nombre and serie)
         todo_valido = clave_valida and serie_valida and campos_llenos
         
@@ -122,37 +119,10 @@ if menu == "📦 Inventario de Equipos":
             respuesta = requests.post(URL_DB_EQUIPOS, json=datos_nuevos)
             
             if respuesta.status_code == 201:
-                st.success(f"✅ ¡Éxito! El equipo '{nombre}' se guardó en la base de datos. (Presiona F5 para limpiar el formulario y registrar otro)")
+                st.success(f"✅ ¡Éxito! El equipo '{nombre}' se guardó en la base de datos.")
                 st.balloons()
             else:
                 st.error("⚠️ Hubo un problema al guardar en la nube.")
-    
-    # --- Lógica del Botón Inteligente ---
-    campos_llenos = bool(clave and nombre and serie)
-    todo_valido = clave_valida and serie_valida and campos_llenos
-    
-    if st.button("Guardar en Base de Datos", type="primary", disabled=not todo_valido):
-        datos_nuevos = {
-            "data": [
-                {
-                    "Clave": clave_limpia,
-                    "Nombre": nombre.upper(),
-                    "Ubicacion": ubicacion,
-                    "Marca": marca.upper(),
-                    "Modelo": modelo.upper(),
-                    "Serie": serie_limpia,
-                    "Estatus": estatus
-                }
-            ]
-        }
-        
-        respuesta = requests.post(URL_SHEETDB, json=datos_nuevos)
-        
-        if respuesta.status_code == 201:
-            st.success(f"✅ ¡Éxito! El equipo '{nombre}' se guardó en la base de datos. (Presiona F5 para limpiar el formulario y registrar otro)")
-            st.balloons()
-        else:
-            st.error("⚠️ Hubo un problema al guardar en la nube.")
 
 # ==========================================
 # MODULO: RECEPCIÓN DE MUESTRAS
@@ -160,8 +130,6 @@ if menu == "📦 Inventario de Equipos":
 elif menu == "📥 Recepción de Muestras":
     st.title("Bitácora de Recepción de Muestras")
     
-    # ⚠️ ESTA ES LA LÍNEA QUE TE FALTABA ⚠️
-    # Aquí le decimos a Python que descargue los datos y los guarde en "df_muestras"
     df_muestras = cargar_datos(URL_HOJA_MUESTRAS)
     
     tab_v, tab_a = st.tabs(["📋 Ver Muestras", "🆕 Ingresar Muestra"])
@@ -169,17 +137,13 @@ elif menu == "📥 Recepción de Muestras":
     with tab_v:
         st.subheader("Listado de Productos Recibidos")
         
-        # Ahora Python ya sabe qué es df_muestras y no dará error
         if not df_muestras.empty:
-            # Añadimos un buscador rápido para las muestras
             busqueda_m = st.text_input("🔍 Buscar muestra (ID, Producto o Lote):")
             
             if busqueda_m:
-                # Filtramos la tabla de muestras
                 df_filtro_m = df_muestras[df_muestras.astype(str).apply(lambda x: x.str.contains(busqueda_m, case=False, na=False)).any(axis=1)]
                 st.dataframe(df_filtro_m, use_container_width=True)
             else:
-                # Mostramos todo si no hay búsqueda
                 st.dataframe(df_muestras, use_container_width=True)
         else:
             st.info("Aún no hay muestras registradas en la bitácora o hay un error en el enlace.")
@@ -230,6 +194,7 @@ elif menu == "📥 Recepción de Muestras":
                     st.error("⚠️ Error al conectar con la base de datos de muestras.")
             else:
                 st.warning("El ID y el Nombre del Producto son obligatorios.")
+
 # ==========================================
 # OTROS MÓDULOS (PRÓXIMAMENTE)
 # ==========================================
