@@ -150,19 +150,41 @@ elif menu == "📥 Recepción de Muestras":
         else:
             st.info("Aún no hay muestras registradas en la bitácora o hay un error en el enlace.")
             
-    with tab_a:
+with tab_a:
         st.subheader("Formulario de Ingreso de Producto/Muestra")
         
+        # --- LÓGICA DE AUTO-GENERACIÓN DE ID ---
+        siguiente_id = "DS-01" # Valor por defecto si la base está vacía
+        if not df_muestras.empty and 'ID_MUESTRA' in df_muestras.columns:
+            # Filtramos solo los IDs que sean texto
+            ids_actuales = df_muestras['ID_MUESTRA'].dropna().astype(str)
+            numeros = []
+            for val in ids_actuales:
+                val = val.strip().upper()
+                if val.startswith("DS-"):
+                    try:
+                        # Extraemos el número después del guion
+                        num = int(val.replace("DS-", ""))
+                        numeros.append(num)
+                    except:
+                        pass # Ignoramos si alguien escribió "DS-ERROR" o algo sin número
+            
+            if numeros:
+                max_num = max(numeros)
+                # Creamos el siguiente ID manteniendo los ceros a la izquierda (ej. DS-05)
+                siguiente_id = f"DS-{max_num + 1:02d}"
+
+        # --- FORMULARIO ---
         col1, col2 = st.columns(2)
         with col1:
-            id_muestra = st.text_input("ID Number (DS-XX) *")
+            # Aquí inyectamos el "siguiente_id" automáticamente en la casilla
+            id_muestra = st.text_input("ID Number (Sugerido automático) *", value=siguiente_id)
             
             # --- Validación Dinámica del ID de Muestra ---
             id_valido = False
             if id_muestra:
                 id_limpio = id_muestra.strip().upper()
                 
-                # Verificamos si la hoja tiene datos y buscamos duplicados
                 if not df_muestras.empty and 'ID_MUESTRA' in df_muestras.columns:
                     existe_id = df_muestras['ID_MUESTRA'].astype(str).str.strip().str.upper().isin([id_limpio]).any()
                 else:
@@ -192,7 +214,6 @@ elif menu == "📥 Recepción de Muestras":
         campos_m_llenos = bool(id_muestra and producto)
         todo_m_valido = id_valido and campos_m_llenos
 
-        # El botón solo se activa si el ID no está repetido y los campos obligatorios están llenos
         if st.button("Registrar Muestra en Bitácora", type="primary", disabled=not todo_m_valido):
             nueva_muestra = {
                 "data": [
