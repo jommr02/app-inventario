@@ -222,8 +222,8 @@ elif menu == "📥 Recepción de Muestras":
 # ==========================================
 # OTROS MÓDULOS
 # ==========================================
-elif menu == "🚚 Despachos a Pozos":
-    st.title("Despachos a Pozos")
+elif menu == "🚚 Despachos a Taladros":
+    st.title("Despachos a Taladros")
     st.info("Módulo en construcción. Próximamente.")
 
 elif menu == "📊 Panel de Control":
