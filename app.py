@@ -18,7 +18,7 @@ st.sidebar.markdown("Sistema de Gestión de Laboratorio")
 menu = st.sidebar.radio("Módulos:", [
     "📦 Inventario de Equipos",
     "📥 Recepción de Muestras",
-    "🚚 Despachos a Pozos",
+    "🚚 Despachos a Taladros",
     "📊 Panel de Control"
 ])
 
