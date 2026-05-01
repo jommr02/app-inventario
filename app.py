@@ -6,21 +6,21 @@ st.set_page_config(page_title="Inventario de Laboratorio", page_icon="🔬", lay
 
 URL_GOOGLE_SHEET = "https://docs.google.com/spreadsheets/d/12luDlLrUIiPtxX7iqGuU3QuG_E6psGWtfYrQmSTzJCU/export?format=csv"
 
-# Put the link you got from Google Apps Script here!
-APPS_SCRIPT_URL = https://sheetdb.io/api/v1/9pogtini9kr0k
+# 1. CORRECCIÓN: Se agregaron las comillas alrededor del enlace
+URL_SHEETDB = "https://sheetdb.io/api/v1/9pogtini9kr0k"
 
 st.title("🔬 Sistema de Gestión de Inventario WCF")
 
 try:
     df = pd.read_csv(URL_GOOGLE_SHEET)
-    df.columns = df.columns.str.strip() # Ninja trick to clean spaces
+    df.columns = df.columns.str.strip() # Truco Ninja para limpiar espacios
 except Exception as e:
     st.error("⚠️ No se pudieron cargar los datos de la nube.")
     df = pd.DataFrame()
 
 pestaña_ver, pestaña_agregar = st.tabs(["📋 Ver Equipos", "➕ Agregar Nuevo Equipo"])
 
-# --- TAB 1: VIEW INVENTORY ---
+# --- PESTAÑA 1: VER INVENTARIO ---
 with pestaña_ver:
     st.subheader("Inventario Actual en la Nube")
     if not df.empty:
@@ -31,11 +31,10 @@ with pestaña_ver:
         else:
             st.dataframe(df, use_container_width=True)
 
-# --- TAB 2: ADD NEW EQUIPMENT (THE ULTIMATE GUARDIAN) ---
+# --- PESTAÑA 2: AGREGAR NUEVO EQUIPO ---
 with pestaña_agregar:
     st.subheader("Registrar un nuevo equipo")
     
-    # We build the form completely inside the app now!
     with st.form("registro_equipo", clear_on_submit=True):
         col1, col2 = st.columns(2)
         
@@ -57,7 +56,7 @@ with pestaña_agregar:
             if not clave or not nombre or not serie:
                 st.error("Por favor, llena los campos obligatorios: Clave, Nombre y Serie.")
             else:
-                # 1. Validation Phase (The Guardian)
+                # 1. Fase de Validación (El Guardián)
                 clave_limpia = clave.strip().upper()
                 serie_limpia = serie.strip().upper()
                 
@@ -69,21 +68,26 @@ with pestaña_agregar:
                 elif existe_serie:
                     st.error(f"❌ ¡Alto! El Serial '{serie_limpia}' YA EXISTE en el inventario.")
                 else:
-                    # 2. Sending Phase (The Tunnel)
+                    # 2. CORRECCIÓN: Formato especial de datos para SheetDB
                     datos_nuevos = {
-                        "Clave": clave_limpia,
-                        "Nombre": nombre.upper(),
-                        "Ubicacion": ubicacion,
-                        "Marca": marca.upper(),
-                        "Modelo": modelo.upper(),
-                        "Serie": serie_limpia,
-                        "Estatus": estatus
+                        "data": [
+                            {
+                                "Clave": clave_limpia,
+                                "Nombre": nombre.upper(),
+                                "Ubicacion": ubicacion,
+                                "Marca": marca.upper(),
+                                "Modelo": modelo.upper(),
+                                "Serie": serie_limpia,
+                                "Estatus": estatus
+                            }
+                        ]
                     }
                     
-                    # We send the data through the secret tunnel
-                    respuesta = requests.post(APPS_SCRIPT_URL, json=datos_nuevos)
+                    # Enviamos los datos por el túnel usando URL_SHEETDB
+                    respuesta = requests.post(URL_SHEETDB, json=datos_nuevos)
                     
-                    if respuesta.text == "Success":
+                    # 3. CORRECCIÓN: Verificación de éxito para SheetDB (Código 201 significa "Creado")
+                    if respuesta.status_code == 201:
                         st.success(f"✅ ¡Éxito! El equipo '{nombre}' se guardó en la base de datos.")
                         st.balloons()
                     else:
