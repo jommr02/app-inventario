@@ -134,22 +134,21 @@ elif menu == "📥 Recepción de Muestras":
     tab_v, tab_a = st.tabs(["📋 Ver Muestras", "🆕 Ingresar Muestra"])
     
     with tab_v:
-        st.subheader("Listado de Productos Recibidos")
-        
-        if not df_muestras.empty:
-            # Añadimos un buscador rápido para las muestras
-            busqueda_m = st.text_input("🔍 Buscar muestra (ID, Producto o Lote):")
+            st.subheader("Listado de Productos Recibidos")
             
-            if busqueda_m:
-                # Filtramos la tabla de muestras
-                df_filtro_m = df_muestras[df_muestras.astype(str).apply(lambda x: x.str.contains(busqueda_m, case=False, na=False)).any(axis=1)]
-                st.dataframe(df_filtro_m, use_container_width=True)
+            if not df_muestras.empty:
+                # Añadimos un buscador rápido para las muestras
+                busqueda_m = st.text_input("🔍 Buscar muestra (ID, Producto o Lote):")
+                
+                if busqueda_m:
+                    # Filtramos la tabla de muestras
+                    df_filtro_m = df_muestras[df_muestras.astype(str).apply(lambda x: x.str.contains(busqueda_m, case=False, na=False)).any(axis=1)]
+                    st.dataframe(df_filtro_m, use_container_width=True)
+                else:
+                    # Mostramos todo si no hay búsqueda
+                    st.dataframe(df_muestras, use_container_width=True)
             else:
-                # Mostramos todo si no hay búsqueda
-                st.dataframe(df_muestras, use_container_width=True)
-        else:
-            st.info("Aún no hay muestras registradas en la bitácora.")
-        
+                st.info("Aún no hay muestras registradas en la bitácora.")
     with tab_a:
         st.subheader("Formulario de Ingreso de Producto/Muestra")
         
