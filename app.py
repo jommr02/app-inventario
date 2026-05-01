@@ -8,7 +8,7 @@ st.set_page_config(page_title="LIMS - WCF Fluids Lab", page_icon="🔬", layout=
 
 # ENLACES 
 URL_HOJA_EQUIPOS = "https://docs.google.com/spreadsheets/d/12luDlLrUIiPtxX7iqGuU3QuG_E6psGWtfYrQmSTzJCU/export?format=csv"
-URL_HOJA_MUESTRAS = "https://docs.google.com/spreadsheets/d/1fZBvKgt2-S5CRKRBuzIZ8hMS_M9pLYQiz_KcSYDX31o/export?format=csv"
+URL_HOJA_MUESTRAS = "https://docs.google.com/spreadsheets/d/1fZBvKgt2-S5CRKRBuzIZ8hMS_M9pLYQiz_KcSYDX31o/export?format=csv&gid=0"
 URL_DB_EQUIPOS = "https://sheetdb.io/api/v1/9pogtini9kr0k"
 URL_DB_MUESTRAS = "https://sheetdb.io/api/v1/cn4v870fg7c8z"
 
@@ -98,8 +98,7 @@ if menu == "📦 Inventario de Equipos":
             datos_nuevos = {"data": [{"Clave": clave_limpia, "Nombre": nombre.upper(), "Ubicacion": ubicacion, "Marca": marca.upper(), "Modelo": modelo.upper(), "Serie": serie_limpia, "Estatus": estatus}]}
             respuesta = requests.post(URL_DB_EQUIPOS, json=datos_nuevos)
             if respuesta.status_code == 201:
-                st.success(f"✅ ¡Éxito! Equipo guardado. (Presiona F5 para limpiar)")
-                st.balloons()
+                st.success(f"✅ ¡Éxito! Equipo guardado correctamente. (Presiona F5 para limpiar el formulario)")
             else:
                 st.error("⚠️ Error al guardar en la nube.")
 
@@ -176,8 +175,7 @@ elif menu == "📥 Recepción de Muestras":
             nueva_muestra = {"data": [{"ID_MUESTRA": id_limpio, "PRODUCTO": producto.upper(), "CANTIDAD": cant, "UNIDAD": unidad, "PROVEEDOR": proveedor.upper(), "LOTE": lote.upper(), "RECIBIDO_POR": recibido.upper(), "FECHA_MUESTREO": str(f_muestreo), "FECHA_RECEPCION": str(f_recepcion), "ESTATUS": estatus, "CERTIFICADO": "PENDIENTE"}]}
             res = requests.post(URL_DB_MUESTRAS, json=nueva_muestra)
             if res.status_code == 201:
-                st.success(f"✅ Muestra {id_limpio} guardada. (Presiona F5 para registrar otra)")
-                st.balloons()
+                st.success(f"✅ Muestra {id_limpio} registrada correctamente. (Presiona F5 para registrar otra)")
             else:
                 st.error("⚠️ Error al guardar.")
 
