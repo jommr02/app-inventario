@@ -131,24 +131,30 @@ if menu == "📦 Inventario de Equipos":
 elif menu == "📥 Recepción de Muestras":
     st.title("Bitácora de Recepción de Muestras")
     
+    # ⚠️ ESTA ES LA LÍNEA QUE TE FALTABA ⚠️
+    # Aquí le decimos a Python que descargue los datos y los guarde en "df_muestras"
+    df_muestras = cargar_datos(URL_HOJA_MUESTRAS)
+    
     tab_v, tab_a = st.tabs(["📋 Ver Muestras", "🆕 Ingresar Muestra"])
     
     with tab_v:
-            st.subheader("Listado de Productos Recibidos")
+        st.subheader("Listado de Productos Recibidos")
+        
+        # Ahora Python ya sabe qué es df_muestras y no dará error
+        if not df_muestras.empty:
+            # Añadimos un buscador rápido para las muestras
+            busqueda_m = st.text_input("🔍 Buscar muestra (ID, Producto o Lote):")
             
-            if not df_muestras.empty:
-                # Añadimos un buscador rápido para las muestras
-                busqueda_m = st.text_input("🔍 Buscar muestra (ID, Producto o Lote):")
-                
-                if busqueda_m:
-                    # Filtramos la tabla de muestras
-                    df_filtro_m = df_muestras[df_muestras.astype(str).apply(lambda x: x.str.contains(busqueda_m, case=False, na=False)).any(axis=1)]
-                    st.dataframe(df_filtro_m, use_container_width=True)
-                else:
-                    # Mostramos todo si no hay búsqueda
-                    st.dataframe(df_muestras, use_container_width=True)
+            if busqueda_m:
+                # Filtramos la tabla de muestras
+                df_filtro_m = df_muestras[df_muestras.astype(str).apply(lambda x: x.str.contains(busqueda_m, case=False, na=False)).any(axis=1)]
+                st.dataframe(df_filtro_m, use_container_width=True)
             else:
-                st.info("Aún no hay muestras registradas en la bitácora.")
+                # Mostramos todo si no hay búsqueda
+                st.dataframe(df_muestras, use_container_width=True)
+        else:
+            st.info("Aún no hay muestras registradas en la bitácora o hay un error en el enlace.")
+            
     with tab_a:
         st.subheader("Formulario de Ingreso de Producto/Muestra")
         
@@ -156,7 +162,6 @@ elif menu == "📥 Recepción de Muestras":
         with col1:
             id_muestra = st.text_input("ID Number (DS-XX) *")
             producto = st.text_input("Nombre del Producto *")
-            # Separamos Cantidad de Unidad para cálculos futuros
             cant = st.number_input("Cantidad", min_value=0.0, step=0.1)
             unidad = st.selectbox("Unidad", ["gr", "ml", "Kg", "L", "Gal"])
             proveedor = st.text_input("Proveedor")
@@ -170,7 +175,6 @@ elif menu == "📥 Recepción de Muestras":
 
         if st.button("Registrar Muestra en Bitácora", type="primary"):
             if id_muestra and producto:
-                # Datos para SheetDB
                 nueva_muestra = {
                     "data": [
                         {
@@ -191,13 +195,12 @@ elif menu == "📥 Recepción de Muestras":
                 
                 res = requests.post(URL_DB_MUESTRAS, json=nueva_muestra)
                 if res.status_code == 201:
-                    st.success(f"Muestra {id_muestra} registrada correctamente.")
+                    st.success(f"✅ Muestra {id_muestra} registrada correctamente.")
                     st.balloons()
                 else:
-                    st.error("Error al conectar con la base de datos de muestras.")
+                    st.error("⚠️ Error al conectar con la base de datos de muestras.")
             else:
                 st.warning("El ID y el Nombre del Producto son obligatorios.")
-
 # ==========================================
 # OTROS MÓDULOS (PRÓXIMAMENTE)
 # ==========================================
