@@ -147,14 +147,30 @@ elif menu == "📦 Inventario de Equipos":
 elif menu == "📥 Recepción de Muestras":
     st.title("Bitácora de Recepción de Muestras")
     df_muestras = cargar_datos(URL_HOJA_MUESTRAS)
-    tab_v, tab_a = st.tabs(["📋 Ver Muestras", "🆕 Ingresar Muestra"])
     
+    # Función para pintar las filas en cuarentena
+    def resaltar_cuarentena(row):
+        if 'ESTATUS' in row.index and row['ESTATUS'] == 'CUARENTENA':
+            # Fondo rojo claro, texto rojo oscuro y negrita
+            return ['background-color: #ffebee; color: #c62828; font-weight: bold'] * len(row)
+        return [''] * len(row)
+
+    # Ahora tenemos 3 pestañas
+    tab_v, tab_a, tab_e = st.tabs(["📋 Ver Muestras", "🆕 Ingresar Muestra", "🔓 Liberar Cuarentena"])
+    
+    # --- PESTAÑA 1: VER MUESTRAS (Con resaltado) ---
     with tab_v:
         if not df_muestras.empty:
             busqueda_m = st.text_input("🔍 Buscar muestra:")
-            if busqueda_m: st.dataframe(df_muestras[df_muestras.astype(str).apply(lambda x: x.str.contains(busqueda_m, case=False, na=False)).any(axis=1)], use_container_width=True)
-            else: st.dataframe(df_muestras, use_container_width=True)
+            if busqueda_m: 
+                df_filtro = df_muestras[df_muestras.astype(str).apply(lambda x: x.str.contains(busqueda_m, case=False, na=False)).any(axis=1)]
+                # Aplicamos el estilo al dataframe filtrado
+                st.dataframe(df_filtro.style.apply(resaltar_cuarentena, axis=1), use_container_width=True)
+            else: 
+                # Aplicamos el estilo al dataframe completo
+                st.dataframe(df_muestras.style.apply(resaltar_cuarentena, axis=1), use_container_width=True)
 
+    # --- PESTAÑA 2: INGRESAR MUESTRA ---
     with tab_a:
         siguiente_id = "DS-01"
         if not df_muestras.empty and 'ID_MUESTRA' in df_muestras.columns:
@@ -174,7 +190,6 @@ elif menu == "📥 Recepción de Muestras":
             cant = st.number_input("Cantidad", min_value=0.0)
             unidad = st.selectbox("Unidad", ["gr", "ml", "Kg", "L", "Gal"])
             
-            # --- SECCIÓN DE DOCUMENTACIÓN ---
             st.markdown("---")
             st.markdown("**Documentación Técnica (Requerida)**")
             coa_recibido = st.checkbox("Certificado de Análisis (COA) recibido")
@@ -186,22 +201,66 @@ elif menu == "📥 Recepción de Muestras":
             recibido = st.text_input("Recibido por")
             f_recepcion = st.date_input("Fecha de Recepción", datetime.now())
             
-            # --- LÓGICA DE CUARENTENA ---
             st.markdown("---")
             st.markdown("**Estatus Operativo**")
             if coa_recibido and sds_recibida:
                 estatus = st.selectbox("Estatus Inicial", ["PENDIENTE", "EN ANALISIS", "URGENTE"])
             else:
-                st.warning("⚠️ Falta documentación obligatoria (COA/SDS). La muestra ingresará en CUARENTENA automática.")
+                st.warning("⚠️ Falta documentación. Ingresará en CUARENTENA.")
                 estatus = "CUARENTENA"
                 st.text_input("Estatus Inicial", value="CUARENTENA", disabled=True)
 
         if st.button("Registrar Muestra", type="primary", disabled=not (id_valido and producto)):
-            # Se añaden COA y SDS al payload (Asegúrate de que existan en el Excel)
             nueva_muestra = {"data": [{"ID_MUESTRA": id_limpio, "PRODUCTO": producto.upper(), "CANTIDAD": cant, "UNIDAD": unidad, "PROVEEDOR": proveedor.upper(), "LOTE": lote.upper(), "RECIBIDO_POR": recibido.upper(), "FECHA_RECEPCION": str(f_recepcion), "ESTATUS": estatus, "COA": "SI" if coa_recibido else "NO", "SDS": "SI" if sds_recibida else "NO"}]}
             res = requests.post(URL_DB_MUESTRAS, json=nueva_muestra)
             if res.status_code == 201: st.success("✅ Muestra guardada con éxito.")
-
+            
+    # --- PESTAÑA 3: LIBERAR CUARENTENA (NUEVO) ---
+    with tab_e:
+        st.subheader("🔓 Actualizar Documentos y Liberar")
+        st.markdown("Use esta sección cuando reciba los documentos faltantes de una muestra retenida.")
+        
+        if not df_muestras.empty and 'ESTATUS' in df_muestras.columns:
+            # Filtramos para mostrar SOLO las que están en cuarentena
+            en_cuarentena = df_muestras[df_muestras['ESTATUS'] == 'CUARENTENA']
+            
+            if not en_cuarentena.empty:
+                lista_cuarentena = en_cuarentena['ID_MUESTRA'].tolist()
+                sel_muestra = st.selectbox("Seleccione la muestra a liberar:", ["Seleccione..."] + lista_cuarentena)
+                
+                if sel_muestra != "Seleccione...":
+                    info_m = en_cuarentena[en_cuarentena['ID_MUESTRA'] == sel_muestra].iloc[0]
+                    st.info(f"🧪 Producto: **{info_m['PRODUCTO']}** | Lote: **{info_m['LOTE']}**")
+                    
+                    st.markdown("**Confirme la recepción de los documentos:**")
+                    # Si ya tenía alguno en "SI", lo dejamos marcado por defecto
+                    upd_coa = st.checkbox("Ya tengo el COA", value=(str(info_m.get('COA')).strip() == 'SI'))
+                    upd_sds = st.checkbox("Ya tengo la SDS", value=(str(info_m.get('SDS')).strip() == 'SI'))
+                    
+                    nuevo_estatus_m = st.selectbox("Pasar al estatus:", ["PENDIENTE", "EN ANALISIS", "URGENTE"])
+                    
+                    # El botón solo funciona si ambos documentos están listos
+                    if st.button("Liberar Muestra", type="primary"):
+                        if upd_coa and upd_sds:
+                            payload_m = {
+                                "data": {
+                                    "ESTATUS": nuevo_estatus_m,
+                                    "COA": "SI",
+                                    "SDS": "SI"
+                                }
+                            }
+                            res_upd = requests.patch(f"{URL_DB_MUESTRAS}/ID_MUESTRA/{sel_muestra}", json=payload_m)
+                            if res_upd.status_code == 200:
+                                st.success(f"✅ ¡Muestra {sel_muestra} liberada! (Presiona F5 para actualizar la tabla)")
+                                st.balloons()
+                            else:
+                                st.error("⚠️ Error al comunicarse con la base de datos.")
+                        else:
+                            st.error("❌ Necesitas confirmar AMBOS documentos para poder liberar la muestra.")
+            else:
+                st.success("🎉 ¡Excelente trabajo! No hay ninguna muestra en cuarentena en este momento.")
+        else:
+            st.info("Cargando datos...")
 # ==========================================
 # MODULO 3: DESPACHOS A TALADROS
 # ==========================================
