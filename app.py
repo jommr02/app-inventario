@@ -142,36 +142,37 @@ elif menu == "📦 Inventario de Equipos":
             if res.status_code == 201: st.success("✅ Guardado. Presiona F5.")
 
 # ==========================================
-# MODULO 2: RECEPCIÓN DE MUESTRAS (CON MODO CUARENTENA)
+# MODULO 2: RECEPCIÓN DE MUESTRAS (CON TRAZABILIDAD Y VALIDACIÓN DE SOLICITUD)
 # ==========================================
 elif menu == "📥 Recepción de Muestras":
     st.title("Bitácora de Recepción de Muestras")
     df_muestras = cargar_datos(URL_HOJA_MUESTRAS)
     
-    # Función para pintar las filas en cuarentena
-    def resaltar_cuarentena(row):
-        if 'ESTATUS' in row.index and row['ESTATUS'] == 'CUARENTENA':
-            # Fondo rojo claro, texto rojo oscuro y negrita
-            return ['background-color: #ffebee; color: #c62828; font-weight: bold'] * len(row)
+    # Función de resaltado profesional
+    def resaltar_estatus(row):
+        if 'ESTATUS' in row.index:
+            if row['ESTATUS'] == 'CUARENTENA':
+                return ['background-color: #ffebee; color: #c62828; font-weight: bold'] * len(row)
+            elif row['ESTATUS'] == 'PENDIENTE':
+                return ['background-color: #fffde7; color: #f57f17; font-weight: bold'] * len(row)
+            elif row['ESTATUS'] == 'EN ANALISIS':
+                return ['background-color: #e8f5e9; color: #2e7d32; font-weight: bold'] * len(row)
         return [''] * len(row)
 
-    # Ahora tenemos 3 pestañas
-    tab_v, tab_a, tab_e = st.tabs(["📋 Ver Muestras", "🆕 Ingresar Muestra", "🔓 Liberar Cuarentena"])
+    tab_v, tab_a, tab_e = st.tabs(["📋 Ver Muestras", "🆕 Ingresar Muestra", "⚙️ Actualizar Estatus/Docs"])
     
-    # --- PESTAÑA 1: VER MUESTRAS (Con resaltado) ---
+    # --- PESTAÑA 1: VER MUESTRAS ---
     with tab_v:
         if not df_muestras.empty:
             busqueda_m = st.text_input("🔍 Buscar muestra:")
-            if busqueda_m: 
-                df_filtro = df_muestras[df_muestras.astype(str).apply(lambda x: x.str.contains(busqueda_m, case=False, na=False)).any(axis=1)]
-                # Aplicamos el estilo al dataframe filtrado
-                st.dataframe(df_filtro.style.apply(resaltar_cuarentena, axis=1), use_container_width=True)
-            else: 
-                # Aplicamos el estilo al dataframe completo
-                st.dataframe(df_muestras.style.apply(resaltar_cuarentena, axis=1), use_container_width=True)
+            df_mostrar = df_muestras[df_muestras.astype(str).apply(lambda x: x.str.contains(busqueda_m, case=False, na=False)).any(axis=1)] if busqueda_m else df_muestras
+            st.dataframe(df_mostrar.style.apply(resaltar_estatus, axis=1), use_container_width=True)
 
     # --- PESTAÑA 2: INGRESAR MUESTRA ---
     with tab_a:
+        st.subheader("Ingreso de Material y Documentación")
+        
+        # Lógica de ID correlativo
         siguiente_id = "DS-01"
         if not df_muestras.empty and 'ID_MUESTRA' in df_muestras.columns:
             numeros = [int(v.replace("DS-", "")) for v in df_muestras['ID_MUESTRA'].astype(str) if v.startswith("DS-") and v.replace("DS-", "").isdigit()]
@@ -183,84 +184,129 @@ elif menu == "📥 Recepción de Muestras":
             id_valido = False
             if id_muestra:
                 id_limpio = id_muestra.strip().upper()
-                if not df_muestras.empty and 'ID_MUESTRA' in df_muestras.columns and df_muestras['ID_MUESTRA'].astype(str).str.strip().str.upper().isin([id_limpio]).any(): st.error("❌ ID YA EXISTE.")
+                if not df_muestras.empty and 'ID_MUESTRA' in df_muestras.columns and df_muestras['ID_MUESTRA'].astype(str).str.strip().str.upper().isin([id_limpio]).any():
+                    st.error("❌ ID YA EXISTE")
                 else: st.success("✅ ID disponible"); id_valido = True
             
             producto = st.text_input("Nombre del Producto *")
-            cant = st.number_input("Cantidad", min_value=0.0)
-            unidad = st.selectbox("Unidad", ["gr", "ml", "Kg", "L", "Gal"])
-            
-            st.markdown("---")
-            st.markdown("**Documentación Técnica (Requerida)**")
-            coa_recibido = st.checkbox("Certificado de Análisis (COA) recibido")
-            sds_recibida = st.checkbox("Hoja de Seguridad (SDS) recibida")
-            
-        with col2:
             proveedor = st.text_input("Proveedor")
             lote = st.text_input("Lote #")
+            
+        with col2:
+            cant = st.number_input("Cantidad", min_value=0.0)
+            unidad = st.selectbox("Unidad", ["gr", "ml", "Kg", "L", "Gal"])
             recibido = st.text_input("Recibido por")
             f_recepcion = st.date_input("Fecha de Recepción", datetime.now())
-            
-            st.markdown("---")
-            st.markdown("**Estatus Operativo**")
-            if coa_recibido and sds_recibida:
-                estatus = st.selectbox("Estatus Inicial", ["PENDIENTE", "EN ANALISIS", "URGENTE"])
-            else:
-                st.warning("⚠️ Falta documentación. Ingresará en CUARENTENA.")
-                estatus = "CUARENTENA"
-                st.text_input("Estatus Inicial", value="CUARENTENA", disabled=True)
 
-        if st.button("Registrar Muestra", type="primary", disabled=not (id_valido and producto)):
-            nueva_muestra = {"data": [{"ID_MUESTRA": id_limpio, "PRODUCTO": producto.upper(), "CANTIDAD": cant, "UNIDAD": unidad, "PROVEEDOR": proveedor.upper(), "LOTE": lote.upper(), "RECIBIDO_POR": recibido.upper(), "FECHA_RECEPCION": str(f_recepcion), "ESTATUS": estatus, "COA": "SI" if coa_recibido else "NO", "SDS": "SI" if sds_recibida else "NO"}]}
-            res = requests.post(URL_DB_MUESTRAS, json=nueva_muestra)
-            if res.status_code == 201: st.success("✅ Muestra guardada con éxito.")
-            
-    # --- PESTAÑA 3: LIBERAR CUARENTENA (NUEVO) ---
-    with tab_e:
-        st.subheader("🔓 Actualizar Documentos y Liberar")
-        st.markdown("Use esta sección cuando reciba los documentos faltantes de una muestra retenida.")
+        st.markdown("---")
+        st.subheader("🛡️ Validación de Requisitos (Trazabilidad)")
+        c1, c2, c3 = st.columns(3)
+        with c1: coa_ok = st.checkbox("COA Recibido (Físico/Digital)")
+        with c2: sds_ok = st.checkbox("SDS Recibida (Físico/Digital)")
+        with c3: 
+            cod_solicitud = st.text_input("Código de Solicitud (Dejar en blanco si no ha llegado)")
+
+        # --- VALIDACIÓN DE SOLICITUD ÚNICA ---
+        solicitud_valida = True
+        tiene_solicitud = bool(cod_solicitud.strip())
         
-        if not df_muestras.empty and 'ESTATUS' in df_muestras.columns:
-            # Filtramos para mostrar SOLO las que están en cuarentena
-            en_cuarentena = df_muestras[df_muestras['ESTATUS'] == 'CUARENTENA']
-            
-            if not en_cuarentena.empty:
-                lista_cuarentena = en_cuarentena['ID_MUESTRA'].tolist()
-                sel_muestra = st.selectbox("Seleccione la muestra a liberar:", ["Seleccione..."] + lista_cuarentena)
-                
-                if sel_muestra != "Seleccione...":
-                    info_m = en_cuarentena[en_cuarentena['ID_MUESTRA'] == sel_muestra].iloc[0]
-                    st.info(f"🧪 Producto: **{info_m['PRODUCTO']}** | Lote: **{info_m['LOTE']}**")
-                    
-                    st.markdown("**Confirme la recepción de los documentos:**")
-                    # Si ya tenía alguno en "SI", lo dejamos marcado por defecto
-                    upd_coa = st.checkbox("Ya tengo el COA", value=(str(info_m.get('COA')).strip() == 'SI'))
-                    upd_sds = st.checkbox("Ya tengo la SDS", value=(str(info_m.get('SDS')).strip() == 'SI'))
-                    
-                    nuevo_estatus_m = st.selectbox("Pasar al estatus:", ["PENDIENTE", "EN ANALISIS", "URGENTE"])
-                    
-                    # El botón solo funciona si ambos documentos están listos
-                    if st.button("Liberar Muestra", type="primary"):
-                        if upd_coa and upd_sds:
-                            payload_m = {
-                                "data": {
-                                    "ESTATUS": nuevo_estatus_m,
-                                    "COA": "SI",
-                                    "SDS": "SI"
-                                }
-                            }
-                            res_upd = requests.patch(f"{URL_DB_MUESTRAS}/ID_MUESTRA/{sel_muestra}", json=payload_m)
-                            if res_upd.status_code == 200:
-                                st.success(f"✅ ¡Muestra {sel_muestra} liberada! (Presiona F5 para actualizar la tabla)")
-                                st.balloons()
-                            else:
-                                st.error("⚠️ Error al comunicarse con la base de datos.")
-                        else:
-                            st.error("❌ Necesitas confirmar AMBOS documentos para poder liberar la muestra.")
-            else:
-                st.success("🎉 ¡Excelente trabajo! No hay ninguna muestra en cuarentena en este momento.")
+        if tiene_solicitud:
+            cod_sol_limpio = cod_solicitud.strip().upper()
+            if not df_muestras.empty and 'SOLICITUD' in df_muestras.columns:
+                if df_muestras['SOLICITUD'].astype(str).str.strip().str.upper().isin([cod_sol_limpio]).any():
+                    st.error(f"❌ El Código de Solicitud '{cod_sol_limpio}' YA ESTÁ ASIGNADO a otra muestra.")
+                    solicitud_valida = False
+                else:
+                    st.success("✅ Código de Solicitud válido y disponible.")
+
+        # --- LÓGICA DE ESTATUS AUTOMÁTICO ---
+        if not coa_ok or not sds_ok:
+            estatus_auto = "CUARENTENA"
+            color_msg = "error"
+            txt_msg = "Falta documentación técnica obligatoria."
+        elif not tiene_solicitud:
+            estatus_auto = "PENDIENTE"
+            color_msg = "warning"
+            txt_msg = "Documentación (COA/SDS) completa, pero falta el Código de Solicitud."
         else:
-            st.info("Cargando datos...")
+            estatus_auto = "EN ANALISIS"
+            color_msg = "success"
+            txt_msg = "Requisitos completos. Muestra lista para procesamiento."
+
+        getattr(st, color_msg)(f"Estatus Resultante: **{estatus_auto}** - {txt_msg}")
+
+        # El botón verifica ID válido, Producto lleno y que la Solicitud no esté repetida
+        if st.button("Confirmar Registro de Muestra", type="primary", disabled=not (id_valido and producto and solicitud_valida)):
+            valor_solicitud = cod_sol_limpio if tiene_solicitud else "PENDIENTE"
+            
+            payload = {"data": [{
+                "ID_MUESTRA": id_limpio, "PRODUCTO": producto.upper(), "CANTIDAD": cant, "UNIDAD": unidad,
+                "PROVEEDOR": proveedor.upper(), "LOTE": lote.upper(), "RECIBIDO_POR": recibido.upper(),
+                "FECHA_RECEPCION": str(f_recepcion), "ESTATUS": estatus_auto,
+                "COA": "SI" if coa_ok else "NO", "SDS": "SI" if sds_ok else "NO", 
+                "SOLICITUD": valor_solicitud
+            }]}
+            res = requests.post(URL_DB_MUESTRAS, json=payload)
+            if res.status_code == 201: st.success("✅ Muestra registrada correctamente. (Presiona F5 para limpiar)")
+
+    # --- PESTAÑA 3: ACTUALIZAR (LEVANTAR BLOQUEOS) ---
+    with tab_e:
+        st.subheader("⚙️ Gestión de Documentos y Liberación")
+        st.markdown("Actualiza los documentos faltantes o asigna el Código de Solicitud a una muestra pendiente.")
+        
+        if not df_muestras.empty:
+            df_atencion = df_muestras[df_muestras['ESTATUS'] != 'EN ANALISIS']
+            
+            if not df_atencion.empty:
+                sel_m = st.selectbox("Muestra a actualizar:", ["Seleccione..."] + df_atencion['ID_MUESTRA'].tolist())
+                
+                if sel_m != "Seleccione...":
+                    info = df_atencion[df_atencion['ID_MUESTRA'] == sel_m].iloc[0]
+                    st.info(f"🧪 Producto: **{info['PRODUCTO']}** | Estatus actual: **{info['ESTATUS']}**")
+                    
+                    c1, c2, c3 = st.columns(3)
+                    new_coa = c1.checkbox("COA disponible", value=(str(info.get('COA')).strip().upper() == 'SI'))
+                    new_sds = c2.checkbox("SDS disponible", value=(str(info.get('SDS')).strip().upper() == 'SI'))
+                    
+                    val_actual_sol = str(info.get('SOLICITUD', '')).strip().upper()
+                    if val_actual_sol in ['NO', 'PENDIENTE', 'NAN', 'NONE', '']:
+                        val_actual_sol = ""
+                        
+                    with c3:
+                        new_cod_sol = st.text_input("Ingresar Código de Solicitud", value=val_actual_sol)
+                    
+                    # --- VALIDACIÓN AL ACTUALIZAR ---
+                    upd_solicitud_valida = True
+                    tiene_nueva_solicitud = bool(new_cod_sol.strip())
+                    new_cod_limpio = new_cod_sol.strip().upper() if tiene_nueva_solicitud else ""
+                    
+                    if tiene_nueva_solicitud and new_cod_limpio != val_actual_sol:
+                        if df_muestras['SOLICITUD'].astype(str).str.strip().str.upper().isin([new_cod_limpio]).any():
+                            st.error(f"❌ El Código de Solicitud '{new_cod_limpio}' YA ESTÁ ASIGNADO a otra muestra.")
+                            upd_solicitud_valida = False
+                        else:
+                            st.success("✅ Código de Solicitud válido.")
+
+                    # Recalcular estatus
+                    if not new_coa or not new_sds: new_est = "CUARENTENA"
+                    elif not tiene_nueva_solicitud: new_est = "PENDIENTE"
+                    else: new_est = "EN ANALISIS"
+                    
+                    st.write(f"Nuevo Estatus tras actualizar: **{new_est}**")
+                    
+                    if st.button("Actualizar y Sincronizar", type="primary", disabled=not upd_solicitud_valida):
+                        valor_sol_final = new_cod_limpio if tiene_nueva_solicitud else "PENDIENTE"
+                        
+                        payload_upd = {"data": {
+                            "ESTATUS": new_est,
+                            "COA": "SI" if new_coa else "NO",
+                            "SDS": "SI" if new_sds else "NO",
+                            "SOLICITUD": valor_sol_final
+                        }}
+                        res_upd = requests.patch(f"{URL_DB_MUESTRAS}/ID_MUESTRA/{sel_m}", json=payload_upd)
+                        if res_upd.status_code == 200: st.success("✅ Datos actualizados y estatus sincronizado. (Presiona F5)")
+            else:
+                st.success("🎉 Todas las muestras están en análisis o completas.")
 # ==========================================
 # MODULO 3: DESPACHOS A TALADROS
 # ==========================================
